@@ -1,8 +1,10 @@
-streamlit 
-pandas 
-geopandas 
+streamlit
+pandas
+numpy
+plotly
 folium
-streamlit_folium
-st_folium
-plotly.express
-os
+streamlit-folium
+geopandas==0.13.2
+pyproj==3.5.0
+shapely==2.0.1
+fiona==1.9.4

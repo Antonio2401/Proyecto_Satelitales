@@ -1,10 +1,10 @@
 import streamlit as st
 import pandas as pd
-import geopandas as gpd
 import folium
 from streamlit_folium import st_folium
 import plotly.express as px
 import os
+import json
 
 # === CONFIGURACIÓN GENERAL ===
 st.set_page_config(page_title="Monitoreo Calidad del Aire", layout="wide", page_icon="🌫️")
@@ -49,17 +49,24 @@ st.title("🌎 Sistema de Monitoreo de Calidad del Aire - Piura")
 if opcion == "🗺️ Mapa":
     st.subheader("🗺️ Zonas de Análisis Satelital")
 
-    geojson_path = os.path.join(os.getcwd(), "zonas_piura.geojson")
-    gdf = gpd.read_file(geojson_path)
+    # Cargar el geojson como JSON plano
+    with open("zonas_piura.geojson", "r", encoding="utf-8") as f:
+        geojson_data = json.load(f)
 
-    zona_sel = st.selectbox("📍 Seleccione zona:", gdf["Zona"].unique())
-    zona_filt = gdf[gdf["Zona"] == zona_sel]
-    centro = zona_filt.geometry.unary_union.centroid
+    zonas_disponibles = list({f["properties"]["Zona"] for f in geojson_data["features"]})
+    zona_sel = st.selectbox("📍 Seleccione zona:", zonas_disponibles)
 
-    m = folium.Map(location=[centro.y, centro.x], zoom_start=12, tiles="CartoDB positron")
+    # Filtrar zona seleccionada
+    zona_filt = {
+        "type": "FeatureCollection",
+        "features": [f for f in geojson_data["features"] if f["properties"]["Zona"] == zona_sel]
+    }
+
+    # Crear mapa
+    m = folium.Map(location=[-5.2, -80.6], zoom_start=10, tiles="CartoDB positron")
 
     folium.GeoJson(
-        gdf,
+        geojson_data,
         style_function=lambda x: {"fillColor": "gray", "color": "gray", "weight": 1, "fillOpacity": 0.1}
     ).add_to(m)
 
@@ -77,14 +84,12 @@ elif opcion == "📈 Análisis":
     contaminante = st.sidebar.selectbox("☁️ Contaminante:", ["NO2", "CO"])
     rango_anios = st.sidebar.slider("📅 Rango de Años:", 2019, 2029, (2024, 2025))
 
-    # === FILTRADO Y AGRUPACIÓN PROMEDIADA ===
     df_zc = df_total[
         (df_total["zona"] == zona) &
         (df_total["contaminante"] == contaminante) &
         (df_total["anio"].between(rango_anios[0], rango_anios[1]))
     ].groupby("anio").agg({"valor": "mean"}).reset_index()
 
-    # === GRÁFICO LINEAL ===
     st.subheader(f"📈 Evolución Promedio Anual de {contaminante} en {zona} ({rango_anios[0]}–{rango_anios[1]})")
     fig = px.line(df_zc, x="anio", y="valor", markers=True,
                   title=f"{contaminante} - {zona} ({rango_anios[0]}–{rango_anios[1]})")
@@ -97,7 +102,6 @@ elif opcion == "📈 Análisis":
     )
     st.plotly_chart(fig, use_container_width=True)
 
-    # === ALERTAS POR AÑO ===
     limite = 10 if contaminante == "NO2" else 4
     for _, fila in df_zc.iterrows():
         anio, valor = int(fila["anio"]), fila["valor"]
@@ -106,10 +110,8 @@ elif opcion == "📈 Análisis":
         else:
             st.success(f"✅ En {anio}, la concentración promedio fue **{valor:.2f}**, dentro del límite permitido.")
 
-    # === TABLA DE DATOS ===
     st.markdown("### 📄 Datos promediados por año")
     st.dataframe(df_zc, use_container_width=True)
 
-    # === BOTÓN DE EXPORTACIÓN ===
     csv = df_zc.to_csv(index=False).encode("utf-8")
     st.download_button("📥 Descargar CSV", csv, f"{zona}_{contaminante}_rango_{rango_anios[0]}_{rango_anios[1]}.csv", "text/csv")

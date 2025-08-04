@@ -1,3 +1,3 @@
-gdal
-geos
-proj-bin
+gdal-bin
+libgdal-dev
+libspatialindex-dev

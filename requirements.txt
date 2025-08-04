@@ -1,7 +1,8 @@
-streamlit
-pandas
-numpy
-geopandas
+streamlit 
+pandas 
+geopandas 
 folium
-plotly
-streamlit-folium
+streamlit_folium
+st_folium
+plotly.express
+os
